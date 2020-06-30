@@ -43,10 +43,8 @@ public class BasicExample {
         // Create DAO.
         BasicExampleDAO dao = new BasicExampleDAO(ds);
 
-        // Test our retry handling logic if FORCE_RETRY is true.  This
-        // method is only used to test the retry logic.  It is not
-        // necessary in production code.
-        dao.testRetryHandling();
+        // clean db
+        dao.tearDown();
 
         // Set up the 'accounts' table.
         dao.createAccounts();
@@ -54,18 +52,61 @@ public class BasicExample {
         // Insert a few accounts "by hand", using INSERTs on the backend.
         Map<String, String> balances = new HashMap<String, String>();
         balances.put("1", "1000");
-        int updatedAccounts = dao.updateAccounts(balances);
-        System.out.printf("BasicExampleDAO.updateAccounts:\n    => %s total updated accounts\n", updatedAccounts);
+        int updatedAccounts = dao.addAccounts(balances);
+        System.out.printf("Added accounts:\n    => %s total added accounts\n", updatedAccounts);
 
-        // How much money is in these accounts?
-        int balance1 = dao.getAccountBalance(1);
-        System.out.printf("main:\n    => Account balances at time '%s':\n    ID %s => $%s\n", LocalTime.now(), 1, balance1);
+        Runnable t1 = new Runnable() {
+            @Override
+            public void run() {
+                AccountDAO acc = new AccountDAO(ds);
 
-        dao.addFunds(1, balance1 + 100);
+                try{
+                    acc.beginTransaction();
 
-        // How much money is in these accounts?
-        balance1 = dao.getAccountBalance(1);
-        System.out.printf("main:\n    => Account balances at time '%s':\n    ID %s => $%s\n", LocalTime.now(), 1, balance1);
+//                    int balance = acc.getBalance("1");
+
+                    acc.updateBalance("1", 100);
+
+                    acc.commitTransaction();
+                } catch (Exception e) {
+                    System.out.println("THREAD 1 failure: ");
+                    e.printStackTrace();
+                }
+            }
+        };
+
+        Runnable t2 = new Runnable() {
+            @Override
+            public void run() {
+                AccountDAO acc = new AccountDAO(ds);
+
+                try {
+                    acc.beginTransaction();
+
+//                    int balance = acc.getBalance("1");
+
+                    acc.updateBalance("1", 300);
+
+                    acc.commitTransaction();
+                } catch (Exception e) {
+                    System.out.println("THREAD 2 failure: ");
+                    e.printStackTrace();
+                }
+            }
+        };
+
+        Thread tr1 = new Thread(t1, "THREAD 1");
+        Thread tr2 = new Thread(t2, "THREAD 2");
+
+        tr1.start();
+        tr2.start();
+
+        try {
+            tr1.join();
+            tr2.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
         // Drop the 'accounts' table so this code can be run again.
         dao.tearDown();
@@ -273,16 +314,16 @@ class BasicExampleDAO {
      * Creates a fresh, empty accounts table in the database.
      */
     public void createAccounts() {
-        runSQL("CREATE TABLE IF NOT EXISTS accounts (id INT PRIMARY KEY, balance INT, CONSTRAINT balance_gt_0 CHECK (balance >= 0))");
+        runSQL("CREATE TABLE IF NOT EXISTS accounts (id INT PRIMARY KEY, balance INT)");
     };
 
     /**
-     * Update accounts by passing in a Map of (ID, Balance) pairs.
+     * Insert accounts by passing in a Map of (ID, Balance) pairs.
      *
      * @param accounts (Map)
      * @return The number of updated accounts (int)
      */
-    public int updateAccounts(Map<String, String> accounts) {
+    public int addAccounts(Map<String, String> accounts) {
         int rows = 0;
         for (Map.Entry<String, String> account : accounts.entrySet()) {
 
