@@ -34,8 +34,8 @@ public class BasicExample {
         PGSimpleDataSource ds = new PGSimpleDataSource();
         ds.setServerName("localhost");
         ds.setPortNumber(26257);
-        ds.setDatabaseName("bank");
-        ds.setUser("maxroach");
+        ds.setDatabaseName("postgres");
+        ds.setUser("root");
         ds.setPassword(null);
         ds.setReWriteBatchedInserts(true); // add `rewriteBatchedInserts=true` to pg connection string
         ds.setApplicationName("BasicExample");
@@ -54,34 +54,18 @@ public class BasicExample {
         // Insert a few accounts "by hand", using INSERTs on the backend.
         Map<String, String> balances = new HashMap<String, String>();
         balances.put("1", "1000");
-        balances.put("2", "250");
         int updatedAccounts = dao.updateAccounts(balances);
         System.out.printf("BasicExampleDAO.updateAccounts:\n    => %s total updated accounts\n", updatedAccounts);
 
         // How much money is in these accounts?
         int balance1 = dao.getAccountBalance(1);
-        int balance2 = dao.getAccountBalance(2);
-        System.out.printf("main:\n    => Account balances at time '%s':\n    ID %s => $%s\n    ID %s => $%s\n", LocalTime.now(), 1, balance1, 2, balance2);
+        System.out.printf("main:\n    => Account balances at time '%s':\n    ID %s => $%s\n", LocalTime.now(), 1, balance1);
 
-        // Transfer $100 from account 1 to account 2
-        int fromAccount = 1;
-        int toAccount = 2;
-        int transferAmount = 100;
-        int transferredAccounts = dao.transferFunds(fromAccount, toAccount, transferAmount);
-        if (transferredAccounts != -1) {
-            System.out.printf("BasicExampleDAO.transferFunds:\n    => $%s transferred between accounts %s and %s, %s rows updated\n", transferAmount, fromAccount, toAccount, transferredAccounts);
-        }
+        dao.addFunds(1, balance1 + 100);
 
+        // How much money is in these accounts?
         balance1 = dao.getAccountBalance(1);
-        balance2 = dao.getAccountBalance(2);
-        System.out.printf("main:\n    => Account balances at time '%s':\n    ID %s => $%s\n    ID %s => $%s\n", LocalTime.now(), 1, balance1, 2, balance2);
-
-        // Bulk insertion example using JDBC's batching support.
-        int totalRowsInserted = dao.bulkInsertRandomAccountData();
-        System.out.printf("\nBasicExampleDAO.bulkInsertRandomAccountData:\n    => finished, %s total rows inserted\n", totalRowsInserted);
-
-        // Print out 10 account values.
-        int accountsRead = dao.readAccounts(10);
+        System.out.printf("main:\n    => Account balances at time '%s':\n    ID %s => $%s\n", LocalTime.now(), 1, balance1);
 
         // Drop the 'accounts' table so this code can be run again.
         dao.tearDown();
@@ -337,6 +321,14 @@ class BasicExampleDAO {
             return runSQL(sqlCode, sFromId, sFromId, sAmount, sToId, sToId, sAmount);
     }
 
+    public int addFunds(int id, int amount) {
+        String accountId = Integer.toString(id);
+        String accountAmount = Integer.toString(amount);
+
+        String sql = "UPDATE accounts SET balance = ? WHERE id = ?;";
+
+        return runSQL(sql, accountAmount, accountId);
+    }
     /**
      * Get the account balance for one account.
      *
