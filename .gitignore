@@ -8,3 +8,7 @@ stylesheet.css
 /hello-world-java-jdbc.iml
 /.idea/
 /out/
+/target/
+.settings
+.classpath
+.project

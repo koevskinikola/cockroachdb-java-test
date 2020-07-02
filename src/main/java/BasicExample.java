@@ -5,27 +5,6 @@ import javax.sql.DataSource;
 
 import org.postgresql.ds.PGSimpleDataSource;
 
-/*
-  Download the Postgres JDBC driver jar from https://jdbc.postgresql.org.
-
-  Then, compile and run this example like so:
-
-  $ export CLASSPATH=.:/path/to/postgresql.jar
-  $ javac BasicExample.java && java BasicExample
-
-  To build the javadoc:
-
-  $ javadoc -package -cp .:./path/to/postgresql.jar BasicExample.java
-
-  At a high level, this code consists of two classes:
-
-  1. BasicExample, which is where the application logic lives.
-
-  2. BasicExampleDAO, which is used by the application to access the
-     data store.
-
-*/
-
 public class BasicExample {
 
     public static void main(String[] args) {
@@ -41,7 +20,7 @@ public class BasicExample {
         ds.setApplicationName("BasicExample");
 
         // Create DAO.
-        BasicExampleDAO dao = new BasicExampleDAO(ds);
+        DDLDao dao = new DDLDao(ds);
 
         // clean db
         dao.tearDown();
@@ -52,6 +31,7 @@ public class BasicExample {
         // Insert a few accounts "by hand", using INSERTs on the backend.
         Map<String, String> balances = new HashMap<String, String>();
         balances.put("1", "1000");
+        balances.put("2", "1000");
         int updatedAccounts = dao.addAccounts(balances);
         System.out.printf("Added accounts:\n    => %s total added accounts\n", updatedAccounts);
 
@@ -62,10 +42,14 @@ public class BasicExample {
 
                 try{
                     acc.beginTransaction();
-
-//                    int balance = acc.getBalance("1");
-
+                    
+//                    System.out.println("Timestamp T1-1: " + acc.getTxTimestamp());
                     acc.updateBalance("1", 100);
+
+                    int balance = acc.getBalance("2");
+//                    System.out.println("Timestamp T1-2: " + acc.getTxTimestamp());
+
+//                    System.out.println("Timestamp T1-3: " + acc.getTxTimestamp());
 
                     acc.commitTransaction();
                 } catch (Exception e) {
@@ -82,10 +66,13 @@ public class BasicExample {
 
                 try {
                     acc.beginTransaction();
+//                    System.out.println("Timestamp T2-1: " + acc.getTxTimestamp());
 
-//                    int balance = acc.getBalance("1");
+                    acc.updateBalance("2", 300);
 
-                    acc.updateBalance("1", 300);
+                    int balance = acc.getBalance("1");
+//                    System.out.println("Timestamp T2-1: " + acc.getTxTimestamp());
+
 
                     acc.commitTransaction();
                 } catch (Exception e) {
@@ -123,7 +110,7 @@ public class BasicExample {
  *   method
  */
 
-class BasicExampleDAO {
+class DDLDao {
 
     private static final int MAX_RETRY_COUNT = 3;
     private static final String RETRY_SQL_STATE = "40001";
@@ -133,7 +120,7 @@ class BasicExampleDAO {
 
     private final Random rand = new Random();
 
-    BasicExampleDAO(DataSource ds) {
+    DDLDao(DataSource ds) {
         this.ds = ds;
     }
 

@@ -57,6 +57,22 @@ public class AccountDAO {
       throw new RuntimeException(throwables);
     }
   }
+  
+  public String getTxTimestamp() {
+    try {
+      PreparedStatement prs = connection.prepareStatement("select cluster_logical_timestamp()");
+
+      try(ResultSet rs = prs.executeQuery()) {
+        if (rs.next()) {
+          return rs.getString(1);
+        } else {
+          throw new RuntimeException("no data");
+        }
+      }
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   public void updateBalance(String id, int amount) {
     String sAmount = Integer.toString(amount);
